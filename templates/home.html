@@ -1,0 +1,284 @@
+{% extends "layout.html" %}
+
+{% block content %}
+
+    <script>
+        /*
+            INIT
+        */
+        var headline_data = {{data|tojson}} 
+
+        // to pretty print headline_data as string to copy and paste for saving
+        function print_headline_data(){
+            console.log(JSON.stringify(headline_data, null, 3));
+        }
+        
+
+        $(function() {
+            load_headline_data()
+
+        });
+
+        function load_headline_data(){
+            //load headline and summary
+            headline = $.trim(headline_data["headline"])
+            if(headline != ""){
+                show_headline(headline_data)
+            }else{
+                show_headline_editing(headline_data)
+            }
+
+            // load keywords
+            keywords = headline_data["keywords"]
+            if(keywords.length > 0){
+                show_keywords(headline_data)
+            }
+
+             //load images
+            generations_list = headline_data["generations"]
+            if(generations_list.length > 0){
+                show_generations(generations_list, true)
+            }             
+        }
+
+        /*
+            HEADLINES
+        */
+
+        $(function() {
+            $("#submit_headline_btn").click(function(){
+                let headline = $("#headline_input").val()
+                let summary = $("#summary_input").val()
+                submit_headline(headline, summary)
+            })
+
+            $("#edit_headline_btn").click(function(){
+                show_headline_editing(headline_data)
+            })
+        });
+
+        function show_headline_editing(data){
+            $("#edit_headline_div").show()
+            $("#show_headline_div").hide()
+
+            $("#headline_input").val(data["headline"])
+            $("#summary_input").val(data["summary"])
+        }
+
+        function show_headline(data){
+            $("#edit_headline_div").hide()
+            $("#show_headline_div").show()
+
+            $("#show_headline").text(data["headline"])
+            $("#show_summary").text(data["summary"])
+        }
+
+
+        function submit_headline(headline, summary){
+            let data = {"headline":headline,"summary":summary}
+            $.ajax({
+                type: "POST",
+                url: "/submit_headline",                
+                dataType : "json",
+                contentType: "application/json; charset=utf-8",
+                
+                data : JSON.stringify(data),
+                beforeSend: function () { 
+                    $("#spinner-div").show()
+                },
+                success: function(data, text){
+                    // console.log("submit_headline response")
+                    // console.log(data)                
+                    headline_data = data
+                    show_headline(data)
+                },
+                error: function(request, status, error){
+                    console.log("Error");
+                    console.log(request)
+                    console.log(status)
+                    console.log(error)
+                },
+                complete: function () { 
+                    $("#spinner-div").hide()
+                },
+            }); 
+        }
+
+        function edit_headline(){
+            show_headline_editing(headline_data)
+        }
+
+        /*
+            KEYWORDS
+        */
+
+        $(function() {
+            $("#get_keywords").click(function(){                
+                get_keywords_gpt()
+            })
+        });
+
+
+        function show_keywords(data){
+            let keywords = data["keywords"]            
+            $("#display_keywords").empty()
+            $.each(keywords, function(i, item){
+                let new_keyword_div = $("<button class='keyword_div'>") 
+                $(new_keyword_div).text(item).click(function(x){
+                    console.log("item:"+item)
+                    //WORK HERE!!!
+                })
+
+                $("#display_keywords").append(new_keyword_div)
+            })
+        }
+
+        function get_keywords_gpt(){
+            // console.log(headline)
+            // console.log(summary)
+            let data = {}//{"headline":headline,"summary":summary}
+            $.ajax({
+                type: "POST",
+                url: "/get_keywords",                
+                dataType : "json",
+                contentType: "application/json; charset=utf-8",
+                data : JSON.stringify(data),
+                beforeSend: function () { 
+                    $("#spinner-div").show()
+                },
+                success: function(data, text){
+                    console.log("submit_headline response")
+                    console.log(data)
+                    headline_data = data
+
+                    show_keywords(headline_data)
+
+                },
+                error: function(request, status, error){
+                    console.log("Error");
+                    console.log(request)
+                    console.log(status)
+                    console.log(error)
+                },
+                complete: function () { 
+                    $("#spinner-div").hide()
+                },
+            }); 
+        }
+
+        /*
+            IMAGE GENERATIONS
+        */
+
+        $(function() {
+            $("#get_images_headline_btn").click(function(){
+                console.log("get_images_headline_btn")
+                let prompt = headline_data["headline"]
+                get_images(prompt)
+            })
+
+            
+        });
+
+        function get_images(prompt){
+            // console.log(headline)
+            // console.log(summary)
+            let data = {"prompt":prompt}
+            $.ajax({
+                type: "POST",
+                url: "/get_images",                
+                dataType : "json",
+                contentType: "application/json; charset=utf-8",
+                data : JSON.stringify(data),
+                beforeSend: function () { 
+                    $("#spinner-div").show()
+                },
+                success: function(data, text){
+                    console.log("get_images response")
+                    console.log(data)  
+                    let prompt = data["prompt"]
+                    let url = data["url"]
+
+                    let new_generations_list = data
+                        // for i in new_images:
+                    $.each(new_generations_list, function(i, gen) {
+                        headline_data["generations"].push(gen) 
+                    })
+        
+
+                    // headline_data["generations"].push(data)
+                    show_generations(headline_data["generations"])
+
+                },
+                error: function(request, status, error){
+                    console.log("Error");
+                    console.log(request)
+                    console.log(status)
+                    console.log(error)
+                },
+                complete: function () { 
+                    $("#spinner-div").hide()
+                },
+            })
+        }
+
+
+        function show_generations(generations_list){             
+            $("#gallery").empty()
+
+            $.each(generations_list, function(i,item){
+                // console.log(item)
+                let id = item["id"]
+                let is_deleted = item["is_deleted"]
+                
+                if(is_deleted!="true"){
+                    let prompt = item["prompt"]
+                    let url = item["url"]
+
+                    let new_gen_div = $("<div id='"+id+"'><div>"+prompt+"</div><br><img src='"+url+"''></img></div>")
+
+                
+                    $("#gallery").append(new_gen_div)
+                }
+            })
+        }
+    </script>  
+
+    <div class="row">
+
+        <div id="explore_text" class="col-md-4" >
+            <div id="edit_headline_div">                
+                    Headline<br>
+                    <textarea id="headline_input" rows="2" cols="40"></textarea>
+                    <br>
+                    Summary<br>
+                    <textarea id="summary_input" rows="4" cols="40"></textarea>
+                    <br>
+                    <button id="submit_headline_btn" type="button">Submit</button>                
+            </div>
+            <div id="show_headline_div">
+                    <div id="show_headline" ></div>
+                    <div id="show_summary" ></div>
+                    <button id="edit_headline_btn" type="button">Edit</button>
+            </div>
+        </div>
+
+        <div id="keywords_to_select" class="col-md-4">
+            Keywords <button type="button" id="get_keywords">Get Keywords</button>
+            <div id="display_keywords">
+                
+            </div>
+        </div>    
+
+
+        <div id="see_generations" class="col-md-4">
+            See Images <button id="get_images_headline_btn" type="button">Get images for headline</button>
+            <div class="row" id="gallery">
+                <!-- <img src="static/generated_images/Santo-1673729232/Santo-1673729232-0.png"> -->
+            </div>
+        </div>
+    </div>
+
+
+{% endblock %}
+
